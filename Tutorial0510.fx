@@ -90,6 +90,7 @@ struct PS_INPUT
 	float4 lpos		: TEXCOORD1;
 	float4 wpos		: TEXCOORD2;
 	float depth		: DEPTH;
+	float midDepth	: DEPTHMID;
 };
 
 
@@ -113,7 +114,6 @@ PS_INPUT VS( VS_INPUT input )
 	//output.wpos = input.Pos;
 	output.wpos = mul( input.Pos, World );
 	output.depth = ( output.Pos.z - zNear ) / ( zFar - zNear );
-
 
     return output;
 }
@@ -183,7 +183,7 @@ float4 PS( PS_INPUT input) : SV_Target
 		}
 	}
 
-	clip( textureFinal.a - .9f );
+	clip( textureFinal.a - .5f );
 
 
 	float shadow = SHADOW_VAL( input );
@@ -332,14 +332,30 @@ float4 ViewWindowPS2( PS_INPUT input) : SV_Target
 {
 	float4 color = renderTargetMap.Sample( samLinear, input.Tex );
 
-	if( color.a < .01 )
+	float midDepth =  renderTargetMap.Sample( samLinear, float2( .5, .5 ) ).w;
+	float blurFactor = 1.0;
+
+	float depthRange = .01;
+
+	if( color.a > midDepth - depthRange && color.a < midDepth + depthRange )
 	{
 		color.a = 1.0;
 		return color;
 	}
+	else
+	{
+		if( abs( midDepth + depthRange - color.a ) > abs( midDepth - depthRange - color.a ) )
+			blurFactor =  ( ( midDepth - depthRange - color.a ) - zNear ) / ( zFar - zNear );
+		else
+			blurFactor =  ( ( midDepth + depthRange - color.a ) - zNear ) / ( zFar - zNear );
+
+		blurFactor = abs( blurFactor );
+			
+	}
 
 	//return 0.0;
-	float blur = .002;
+	float blur = .004;
+	//blur = blur / blurFactor;
 	color += renderTargetMap.Sample( samLinear, float2( input.Tex.x+blur, input.Tex.y ) );
 	color += renderTargetMap.Sample( samLinear, float2( input.Tex.x-blur, input.Tex.y ) );
 	color += renderTargetMap.Sample( samLinear, float2( input.Tex.x, input.Tex.y+blur ) );
