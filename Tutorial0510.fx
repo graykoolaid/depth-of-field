@@ -330,29 +330,33 @@ float4 ViewWindowPS( PS_INPUT input) : SV_Target
 
 float4 ViewWindowPS2( PS_INPUT input) : SV_Target
 {
-	float4 color = renderTargetMap.Sample( samLinear, input.Tex );
-
-	float midDepth =  renderTargetMap.Sample( samLinear, float2( .5, .5 ) ).w;
+	//float4 color = renderTargetMap.Sample( samLinear, input.Tex );
+	float4 color = velocityMap.Sample( samLinear, input.Tex );
+	color.r = 2*zFar*zNear / (zFar + zNear - (zFar - zNear)*(2*color.r -1));
+	//float midDepth =  renderTargetMap.Sample( samLinear, float2( .5, .5 ) ).w;
+	
+	float z_b = velocityMap.Sample( samLinear, float2( .5, .5 ) ).r;
+	float midDepth = 2*zFar*zNear / (zFar + zNear - (zFar - zNear)*(2*z_b -1));
 	float blurFactor = 1.0;
 
-	float depthRange = .01;
+	float depthRange = .5 * (zFar - zNear );
 
-	if( color.a > midDepth - depthRange && color.a < midDepth + depthRange )
+	if( color.r > midDepth - depthRange && color.r < midDepth + depthRange )
 	{
-		color.a = 1.0;
+		color = renderTargetMap.Sample( samLinear, input.Tex );
 		return color;
 	}
 	else
 	{
-		if( abs( midDepth + depthRange - color.a ) > abs( midDepth - depthRange - color.a ) )
-			blurFactor =  ( ( midDepth - depthRange - color.a ) - zNear ) / ( zFar - zNear );
+		if( abs( midDepth + depthRange - color.r ) > abs( midDepth - depthRange - color.r ) )
+			blurFactor =  ( ( midDepth - depthRange - color.r ) - zNear ) / ( zFar - zNear );
 		else
-			blurFactor =  ( ( midDepth + depthRange - color.a ) - zNear ) / ( zFar - zNear );
+			blurFactor =  ( ( midDepth + depthRange - color.r ) - zNear ) / ( zFar - zNear );
 
 		blurFactor = abs( blurFactor );
 			
 	}
-
+	color = renderTargetMap.Sample( samLinear, input.Tex );
 	//return 0.0;
 	float blur = .004;
 	//blur = blur / blurFactor;
@@ -368,6 +372,8 @@ float4 ViewWindowPS2( PS_INPUT input) : SV_Target
 
 	color = color / 9;
 	color.a = 1.0;
+
+	//color = velocityMap.Sample( samLinear, input.Tex ).r;
 	return color;
 }
 
